@@ -86,16 +86,11 @@ const userModel = new Schema({
 	},
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-userModel.statics.sendUser = function sendUser(user) {
-	const newUser = { ...user };
-	newUser.password = '**********************************';
-	return newUser;
-};
 
 /*
-	Method's to encrypt and decrypt the password
-	@params {password}
-	@return {hashed password}
+ * Method's to encrypt and decrypt the password
+ * @params {password}
+ * @return {hashed password}
 */
 userModel.methods.hashPassword = function hashPassword(length = 64) {
 	const salt = Buffer.from(`${process.env.HASH_SECRET}`, 'base64');

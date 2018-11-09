@@ -1,12 +1,12 @@
-// import { AuthenticationError } from 'apollo-server-express';
 // import redis from "redis";
-import User from './user.model';
+import UserModel from './user.model';
 import { UserResult } from '../../utils/result/user.result';
 import { generateJwtToken } from '../../middlewares/auth/jwt.auth';
 import {
 	validateName, validateEmail, validatePassword, validateUsername,
 } from '../../utils/validate/validate';
 // import { generateToken } from '../utils/tokenGenerate';
+
 
 /*
  * @params Required { email, username, password }
@@ -36,7 +36,7 @@ const signup = async (_, { input }, { user }) => {
 	/*
 	 * check for old user
 	 */
-	const oldUser = await User.findOne({
+	const oldUser = await UserModel.findOne({
 		$or: [{ email: input.email }, { username: input.username }],
 	});
 	if (oldUser) {
@@ -45,26 +45,43 @@ const signup = async (_, { input }, { user }) => {
 	/*
 	 * create new user
 	 */
-	const newUser = new User(input);
+	const newUser = new UserModel(input);
 	newUser.hashPassword();
 	const savedUser = await newUser.save();
 	return new UserResult(true, 'successfully created user', savedUser);
 };
 
-/**
+
+/*
  * @params { username, password }
  * @return { success, message }
  * Mutation to login user
  */
 const login = async (_, { input }) => {
+	/*
+	 * validate input before hitting the backend
+	 */
+	if (input && input.username) {
+		if (!validateUsername(input.username)) {
+			return new UserResult(false, 'Wrong username format');
+		}
+	}
+	if (input && input.email) {
+		if (!validatePassword(input.password)) {
+			return new UserResult(false, 'Wrong email format');
+		}
+	}
+	if (!validatePassword(input.password)) {
+		return new UserResult(false, 'Wrong password format');
+	}
 	// before hitting the server try to validate for email address
-	const user = await User.findOne({ $or: [{ email: input.email }, { username: input.username }] });
+	const user = await UserModel.findOne({ $or: [{ email: input.email }, { username: input.username }] });
 	if (!user) {
 		return new UserResult(false, 'No user exist with this username or email address');
 	}
 	const verified = user.verifyPassword(input.password);
 	if (!verified) {
-		return new UserResult(false, 'Password Wrong.');
+		return new UserResult(false, 'Wrong password');
 	}
 	const payload = {
 		id: user.id, email: user.email, username: user.username, account_type: user.account.account_type,
@@ -259,15 +276,3 @@ const UserMutations = {
 
 
 export default UserMutations;
-
-/*
- * @flow
- */
-function foo(x: ?number): string {
-	if (x) {
-		return x;
-	}
-	return 'default string';
-}
-
-foo(2, 3);

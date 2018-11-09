@@ -1,6 +1,6 @@
+import { AuthenticationError, ApolloError } from 'apollo-server-express';
+import UserModel from './user.model';
 // import redis from 'redis'
-// import  { AuthenticationError } from 'apollo-server-express'
-// import { User } from './user.model'
 // 
 // /* Util method's here */
 // import { generateToken } from '../../utils/tokenGenerate'
@@ -39,16 +39,18 @@
 // }
 // 
 // 
-// const currentUser = async (_, __, { user }) => {
-// 	if(user == undefined || !user.username) {
-// 		throw new AuthenticationError('must authenticate')
-// 	}
-// 	const ruser = await User.findById(user.id)
-// 	if(!ruser) {
-// 		return generateResult(false, "System Error")
-// 	}
-// 	return ruser
-// }
+const currentUser = async (_, __, { user }) => {
+	if ((!user.id) || (!user.username) || (!user.email)) {
+		throw new AuthenticationError('must authenticate');
+	}
+	const returnedUser = await UserModel.findById(user.id);
+	if (!returnedUser) {
+		throw new ApolloError('no user found', 'NO_USER_FOUND');
+	}
+	const newUser = { ...returnedUser };
+	newUser.password = '**********************************';
+	return returnedUser;
+};
 // 
 // 
 // const getUser = async (_, { id }, { user }) => {
@@ -67,17 +69,17 @@
 // 	const users = await User.find({})
 // 	return users
 // }
-// 
-// 
-// const UserQuery = {
-// 	Query: {
-// 		getMe: () => "New User",
-// 		checkEmail,
-// 		checkUser,
-// 		currentUser,
-// 		getUser,
-// 		getAllUser
-// 	},
+//
+//
+const UserQuery = {
+	Query: {
+		getMe: () => 'New User',
+		// checkEmail,
+		// checkUser,
+		currentUser,
+		// getUser,
+		// getAllUser,
+	},
 // 	User: {
 // 		notifications: (rootUser) => {
 // 			// make query for nested fields inside user
@@ -106,6 +108,6 @@
 // 			return rootUser.social_urls
 // 		}
 // 	}
-// }
+};
 
-export default {};
+export default UserQuery;
