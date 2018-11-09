@@ -1,0 +1,14 @@
+[include]
+./src/resources/**/*.js
+
+[ignore]
+./src/__tests__/.*
+./dist/.*
+./node_modules/.*
+./scripts/.*
+
+[libs]
+./libs
+
+[options]
+include_warnings=true

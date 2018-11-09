@@ -1,0 +1,13 @@
+# dependencies
+server/node_modules
+server/node_modules
+.idea
+
+# production
+server/dist
+
+# logs
+server/src/config/logs/log
+server/dist/*.json
+server/dist/*.hot-update.js.map
+server/dist/*.hot-update.js

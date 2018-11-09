@@ -1,0 +1,18 @@
+interface Result {
+    status: Boolean!
+    message: String!
+}
+type Query {
+    test: String
+}
+type Mutation {
+    test: String
+}
+type Subscription {
+    test: String
+}
+schema {
+    query: Query
+    mutation: Mutation
+    subscription: Subscription
+}

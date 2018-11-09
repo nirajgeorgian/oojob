@@ -1,0 +1,123 @@
+enum GenderTypeEnum {
+	male
+	female
+	other
+	not to mention
+}
+enum SubscriptionTypeEnum {
+	free
+	starter
+	premium
+}
+enum AccountTypeEnum {
+	provider
+	seeker
+}
+type ContactInfo {
+	no: Int!
+	code: String!
+}
+type SocialUrls {
+	facebook: String
+	google: String
+	twitter: String
+	github: String
+	instagram: String
+	personal: String
+}
+type Notifications {
+	job_posting: Status!
+	company_promotion: Status!
+	message: Status!
+	mail: Status!
+	comment: Status!
+}
+type Account {
+	account_type: AccountTypeEnum!
+	subscription_type: SubscriptionTypeEnum!
+}
+type User {
+	_id: ID!
+	firstname: String!
+	lastname: String!
+	gender: GenderTypeEnum
+	dob: String
+	username: String!
+	email: String!
+	password: String!
+	skills: [String!]
+	phone: ContactInfo
+	address: String!
+	location: String
+	profile_picture: String
+	verified: Boolean!
+	social_urls: SocialUrls!
+	notifications: Notifications
+	notification: Notifications
+	account: Account!
+	created_at: String!
+	updated_at: String!
+}
+type PasswordReset {
+	token: String
+	confirm: Boolean
+}
+type Status {
+	result: Boolean
+}
+type UserResult implements Result {
+	status: Boolean!
+	message: String!
+	user: User
+}
+extend type Query {
+	currentUser: User
+	getMe: String
+	checkEmail(email: String!): UserResult!
+	checkUser(username: String!): UserResult!
+	getAllUser: [User]!
+	getUser(id: ID!): User
+	notification(id: ID!): Notifications
+}
+input AccountTypeInput {
+	account_type: AccountTypeEnum!
+	subscription_type: SubscriptionTypeEnum!
+}
+input UserSignupCredInput {
+	firstname: String!
+	lastname: String!
+	gender: GenderTypeEnum!
+	username: String!
+	email: String!
+	password: String!
+	account: AccountTypeInput!
+}
+input UserLoginCredInput {
+	username: String
+	email: String
+	password: String!
+}
+input UserCheckInput {
+	email: String
+	username: String
+}
+input TokenInput {
+	token: String!
+	email: String
+	username: String
+}
+input ResetPasswordInput {
+	token: String!
+	email: String
+	username: String
+	password: String!
+	againPassword: String!
+}
+extend type Mutation {
+	signup(input: UserSignupCredInput!): UserResult!
+	login(input: UserLoginCredInput!): UserResult!
+	passwordToken(input: UserCheckInput!): UserResult!
+	confirmToken(input: TokenInput!): UserResult!
+	resetPassword(input: ResetPasswordInput!): UserResult!
+	changeUsername(input: UserCheckInput!): UserResult!
+}

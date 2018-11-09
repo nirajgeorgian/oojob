@@ -1,0 +1,15 @@
+id,
+name,
+type: 'internship'|'fulltime' etc
+category: 'Marketing'|'Technical' etc
+desc,
+skills_required
+sallary_min
+sallary_max
+location
+attachment[type| pdf, image, excel, csv]
+milestone: [start with 5 and then later create later on]
+resume
+created_at
+current_status: 'active', 'hold', 'expired', 'closed'
+views

@@ -1,0 +1,26 @@
+name
+desc
+url
+logo
+location
+founder: [](optional)
+reviews: [
+  {userid, stars, {pros, cons}, suggestions}
+]
+notofication: [
+  job_posting,
+  company_promotion,
+  message|mail,
+  comment
+]
+working_hours[fulltime]
+working_hours[intern time]
+company_since: 2000|Founded at
+created_at
+updated_at
+hiring_status: on|off
+languages: 'html'|'css'|'js'|'erlang'
+no_of_users
+opensources: [{
+  title, description, url, languages, licence_type
+}]

@@ -1,0 +1,3 @@
+# Node with nginx
+FROM nginx:1.14
+COPY ./default.conf /etc/nginx/conf.d/

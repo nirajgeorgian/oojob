@@ -1,0 +1,130 @@
+version: '3.5'
+services:
+  # base container for server api
+  ooserver:
+    container_name: ooserver
+    labels:
+      com.oojobapi.description: "oojob web app API server"
+    build: ./server
+    expose:
+      - ${API_SERVER_PORT}
+    ports:
+      - ${API_SERVER_PORT}:${API_SERVER_PORT}
+    environment:
+      REDIS_SERVER_PORT: ${REDIS_SERVER_PORT}
+      REDIS_SERVER_PASSWORD: ${REDIS_SERVER_PASSWORD}
+      MONGO_SERVER_PORT: ${MONGO_SERVER_PORT}
+      MONGO_SERVER_USER: ${MONGO_SERVER_USER}
+      MONGO_SERVER_PASSWORD: ${MONGO_SERVER_PASSWORD}
+      POSTGRES_SERVER_PORT: ${POSTGRES_SERVER_PORT}
+      POSTGRES_SERVER_USER: ${POSTGRES_SERVER_USER}
+      POSTGRES_SERVER_PASSWORD: ${POSTGRES_SERVER_PASSWORD}
+      API_SERVER_PORT: ${API_SERVER_PORT}
+    volumes:
+    - ./server:/OoOO/server
+    - /OoOO/server/node_modules
+    depends_on:
+      - oomongo
+      - ooredis
+      - oopostgres
+    healthcheck:
+      test: ["CMD", "curl -f http://localhost:3030 || exit 1"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 2
+    networks:
+      oonetwork:
+        aliases:
+          - ooapi_1
+          - ooapi_2
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: "0.50"
+    #   replicas: 1
+    #   restart_policy:
+    #     condition: on-failure
+
+  # base container for client
+  # ooclient:
+  #   container_name: ooclient
+  #   labels:
+  #     com.oojob.description: "oojob web frontend"
+  #   build: ./client
+  #   expose:
+  #     - ${REACT_ENV_PORT}
+  #   ports:
+  #     - ${REACT_ENV_PORT}:${REACT_ENV_PORT}
+  #   environment:
+  #     REACT_ENV_PORT: ${REACT_ENV_PORT}
+  #     FRONTEND_API: ${FRONTEND_API}
+  #   volumes:
+  #     - ./client:/OoOO/client
+  #     - /OoOO/client/node_modules
+  #   networks:
+  #     - oonetwork
+  # redis in memory database for server api
+  ooredis:
+    container_name: ooredis
+    image: redis:5.0
+    restart: always
+    command: redis-server --requirepass ${REDIS_SERVER_PASSWORD}
+    environment:
+      REDIS_SERVER_PORT: ${REDIS_SERVER_PORT}
+    ports:
+    - ${REDIS_SERVER_PORT}:${REDIS_SERVER_PORT}
+    networks:
+      - oonetwork
+
+  # mongodb for server api
+  oomongo:
+    container_name: oomongo
+    image: mongo:4.0
+    restart: always
+    ports:
+    - ${MONGO_SERVER_PORT}:${MONGO_SERVER_PORT}
+    # environment:
+      # MONGO_INITDB_ROOT_USERNAME: ${MONGO_SERVER_USER}
+      # MONGO_INITDB_ROOT_PASSWORD: ${MONGO_SERVER_PASSWORD}
+    networks:
+      - oonetwork
+
+  # sql type database for server api
+  oopostgres:
+    container_name: oopostgres
+    image: postgres:11.0
+    restart: always
+    environment:
+      POSTGRES_DB: oojob
+      POSTGRES_USER: ${POSTGRES_SERVER_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_SERVER_PASSWORD}
+    ports:
+    - ${POSTGRES_SERVER_PORT}:${POSTGRES_SERVER_PORT}
+    networks:
+      - oonetwork
+
+  # realtime database support for chat abd nessage feature
+  oorethinkdb:
+    container_name: oorethinkdb
+    image: rethinkdb:2.3
+    restart: always
+    ports:
+    - "28015:28015"
+
+  # serving with nginx  
+  ooproxy:
+    build: ./server/scripts/nginx
+    container_name: proxy
+    restart: unless-stopped
+    networks:
+      - oonetwork
+    ports:
+      - 80:80
+      - 3000:3000
+    links:
+      - ooserver
+
+networks:
+  oonetwork:
+    driver: bridge
+  # nginx:

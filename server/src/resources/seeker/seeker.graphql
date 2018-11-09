@@ -1,0 +1,22 @@
+enum SeekerJobsStatusEnum {
+    default
+    approved
+    rejected
+    waiting
+}
+type SeekerJobsApplied {
+    job_id: String!
+    status: SeekerJobsStatusEnum!
+}
+type JobsApplied {
+    count: Int!
+    jobs: SeekerJobsApplied
+}
+type Seeker {
+    _id: ID!
+    resume: String
+    jobs_applied: JobsApplied
+    company_worked: [String!]
+    created_at: String
+    updated_at: String
+}

@@ -1,0 +1,13 @@
+type JobsProvided {
+    count: Int
+    jobs: [String!]
+}
+type Provider {
+    _id: ID!
+    user_id: String!
+    company: String!
+    jobs_provided: JobsProvided
+    key_skills: [String!]
+    created_at: String!
+    updated_at: String!
+}
