@@ -1,16 +1,16 @@
 import { AuthenticationError, ApolloError } from 'apollo-server-express';
 import UserModel from './user.model';
 // import redis from 'redis'
-// 
+//
 // /* Util method's here */
 // import { generateToken } from '../../utils/tokenGenerate'
 // import { generateResult } from '../utils/resuleGenerate';
 // import { ObjectCheck } from '../utils/helper';
-// 
+//
 // /**
 //  * Below are the Query Functions
 //  */
-// 
+//
 // /**
 //  * @params { email }
 //  * @return { success, message }
@@ -23,8 +23,8 @@ import UserModel from './user.model';
 // 	}
 // 	return generateResult(true, "email exists");
 // }
-// 
-// 
+//
+//
 // /**
 //  * @params { email }
 //  * @return { success, message }
@@ -37,43 +37,39 @@ import UserModel from './user.model';
 // 	}
 // 	return generateResult(true, "username exists")
 // }
-// 
-// 
+
+
 const currentUser = async (_, __, { user }) => {
-	if ((!user.id) || (!user.username) || (!user.email)) {
+	if (!user.id) {
 		throw new AuthenticationError('must authenticate');
 	}
 	const returnedUser = await UserModel.findById(user.id);
 	if (!returnedUser) {
 		throw new ApolloError('no user found', 'NO_USER_FOUND');
 	}
-	const newUser = { ...returnedUser };
-	newUser.password = '**********************************';
 	return returnedUser;
 };
-// 
-// 
-// const getUser = async (_, { id }, { user }) => {
-// 	if(!user || !user.username) {
-// 		throw new AuthenticationError('must authenticate')
-// 	}
-// 	const ruser = await User.findById(id)
-// 	if(!ruser) {
-// 		return generateResult(false, "System Error")
-// 	}
-// 	return ruser
-// }
-// 
-// 
-// const getAllUser = async (_, __, { user }) => {
-// 	const users = await User.find({})
-// 	return users
-// }
-//
-//
+
+
+const getUser = async (_, { id }) => {
+	const returnedUser = await UserModel.findById(id);
+	if (!returnedUser) {
+		return new ApolloError('no user found', 'NO_USER_FOUND');
+	}
+	return returnedUser;
+};
+
+
+const getUsers = async (_, { ids }) => {
+	const returnedUsers = await UserModel.find({ _id: { $in: ids } });
+	return returnedUsers;
+};
+
+
 const UserQuery = {
 	Query: {
-		getMe: () => 'New User',
+		getUser,
+		getUsers,
 		// checkEmail,
 		// checkUser,
 		currentUser,

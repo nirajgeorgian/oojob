@@ -1,11 +1,14 @@
-// import redis from "redis";
+import redis from 'redis';
+import { AuthenticationError } from 'apollo-server-express';
 import UserModel from './user.model';
 import { UserResult } from '../../utils/result/user.result';
+import { TokenResult } from '../../utils/result/token.result';
 import { generateJwtToken } from '../../middlewares/auth/jwt.auth';
+import { generateToken } from '../../utils/tokenGenerate';
+import { development } from '../../config/debug/debug';
 import {
 	validateName, validateEmail, validatePassword, validateUsername,
 } from '../../utils/validate/validate';
-// import { generateToken } from '../utils/tokenGenerate';
 
 
 /*
@@ -14,31 +17,43 @@ import {
  * Mutation to create single user
  */
 const signup = async (_, { input }, { user }) => {
+	development('signup');
 	// if user is logged in throw him error
-	if (user.id) {
+	if (user && user.id) {
 		return new UserResult(false, 'You must not be logged in');
 	}
 	/*
 	 * validate the input
 	 */
-	if (!validateEmail(input.email)) {
-		return new UserResult(false, 'Wrong email address format');
+	const email = (input && input.email) ? input.email : '';
+	const username = (input && input.username) ? input.username : '';
+	if (email === '' && username === '') {
+		return new TokenResult(false, 'Please pass email or username');
 	}
-	if ((!validateName(input.firstname)) || (!validateName(input.lastname))) {
-		return new UserResult(false, 'Wrong name format');
+	if (input && input.email) {
+		if (!validateEmail(input.email)) {
+			return new UserResult(false, 'Wrong email address format');
+		}
 	}
-	if (!validateUsername(input.username)) {
-		return new UserResult(false, 'Wrong username format');
+	if (input && input.firstname && input.lastname) {
+		if ((!validateName(input.firstname)) || (!validateName(input.lastname))) {
+			return new UserResult(false, 'Wrong name format');
+		}
 	}
-	if (!validatePassword(input.password)) {
-		return new UserResult(false, 'Wrong password format');
+	if (input && input.username) {
+		if (!validateUsername(input.username)) {
+			return new UserResult(false, 'Wrong username format');
+		}
+	}
+	if (input && input.password) {
+		if (!validatePassword(input.password)) {
+			return new UserResult(false, 'Wrong password format');
+		}
 	}
 	/*
 	 * check for old user
 	 */
-	const oldUser = await UserModel.findOne({
-		$or: [{ email: input.email }, { username: input.username }],
-	});
+	const oldUser = await UserModel.findOne({ $or: [{ email }, { username }] });
 	if (oldUser) {
 		return new UserResult(false, 'User already exists');
 	}
@@ -58,6 +73,115 @@ const signup = async (_, { input }, { user }) => {
  * Mutation to login user
  */
 const login = async (_, { input }) => {
+	development('login');
+	/*
+	 * validate input before hitting the backend
+	 */
+	const email = (input && input.email) ? input.email : '';
+	const username = (input && input.username) ? input.username : '';
+	if (email === '' && username === '') {
+		return new TokenResult(false, 'Please pass email or username');
+	}
+	if (input && input.username) {
+		if (!validateUsername(input.username)) {
+			return new UserResult(false, 'Wrong username format');
+		}
+	}
+	if (input && input.email) {
+		if (!validateEmail(input.email)) {
+			return new UserResult(false, 'Wrong email format');
+		}
+	}
+	if (input && input.password) {
+		if (!validatePassword(input.password)) {
+			return new UserResult(false, 'Wrong password format');
+		}
+	}
+	// before hitting the server try to validate for email address
+	const user = await UserModel.findOne({ $or: [{ email }, { username }] });
+	if (!user) {
+		return new UserResult(false, 'No user exist with this username or email address');
+	}
+	const verified = user.verifyPassword(input.password);
+	if (!verified) {
+		return new UserResult(false, 'Wrong password');
+	}
+	const payload = { id: user.id, account_type: user.account.account_type };
+	const token = `Bearer ${generateJwtToken(payload)}`;
+	return new UserResult(true, token);
+};
+
+
+/*
+ * @params { email, username }
+ * @return { success, message }
+ * Mutation to create password reset token
+ */
+const passwordToken = async (_, { input }, { redisClient }) => {
+	development('passwordToken');
+	/*
+	 * store the user related data
+	 */
+	const email = (input && input.email) ? input.email : '';
+	const username = (input && input.username) ? input.username : '';
+	if (email === '' && username === '') {
+		return new TokenResult(false, 'Please pass email or username');
+	}
+	/*
+	 * validate input before hitting the backend
+	 */
+	if (input && input.username) {
+		if (!validateUsername(input.username)) {
+			return new TokenResult(false, 'Wrong username format');
+		}
+	}
+	if (input && input.email) {
+		if (!validateEmail(input.email)) {
+			return new TokenResult(false, 'Wrong email format');
+		}
+	}
+	/*
+	 * Validate weather email was passed or email
+	 */
+	const user = await UserModel.findOne({ $or: [{ email }, { username }] });
+	if (!user) {
+		if (email !== '') {
+			return new TokenResult(false, `no user exist for this ${email}`);
+		}
+		if (username !== '') {
+			return new TokenResult(false, `no user exist for this ${username}`);
+		}
+	}
+	const token = generateToken(50);
+	/*
+	 * Set the token with redis client appropiately
+	 */
+	if (email !== '') {
+		redisClient.set(`${email}-password-reset`, token, redis.print);
+	}
+	if (username !== '') {
+		redisClient.set(`${username}-password-reset`, token, redis.print);
+	}
+	return new TokenResult(true, 'Successfully created the token', token);
+};
+
+
+/*
+ * @params { token, username, email }
+ * @return { success, message }
+ * Mutation to confirm password reset token and generate token for updating password
+ */
+const confirmToken = async (_, { input }, { redisClient, getAsync }) => {
+	development('confirmToken');
+	const { token } = input;
+	/*
+	 * store the user related data
+	 */
+	const email = (input && input.email) ? input.email : '';
+	const username = (input && input.username) ? input.username : '';
+	if (email === '' && username === '') {
+		return new TokenResult(false, 'Please pass email or username');
+	}
 	/*
 	 * validate input before hitting the backend
 	 */
@@ -67,212 +191,168 @@ const login = async (_, { input }) => {
 		}
 	}
 	if (input && input.email) {
-		if (!validatePassword(input.password)) {
+		if (!validateEmail(input.email)) {
 			return new UserResult(false, 'Wrong email format');
 		}
 	}
-	if (!validatePassword(input.password)) {
-		return new UserResult(false, 'Wrong password format');
+	let key = null;
+	if (email !== '') {
+		key = `${email}-password-reset`;
 	}
-	// before hitting the server try to validate for email address
-	const user = await UserModel.findOne({ $or: [{ email: input.email }, { username: input.username }] });
+	if (username !== '') {
+		key = `${username}-password-reset`;
+	}
+	if (key !== null) {
+		const isKey = redisClient.get(key, redis.print);
+		if (!isKey) {
+			return new TokenResult(false, 'no value for provider key');
+		}
+	}
+	const user = await UserModel.findOne({ $or: [{ email }, { username }] });
 	if (!user) {
-		return new UserResult(false, 'No user exist with this username or email address');
+		if (email !== '') {
+			return new TokenResult(false, `no user exist for this ${email}`);
+		}
+		if (username !== '') {
+			return new TokenResult(false, `no user exist for this ${email}`);
+		}
 	}
-	const verified = user.verifyPassword(input.password);
-	if (!verified) {
-		return new UserResult(false, 'Wrong password');
+	const data = await getAsync(key);
+	if (data !== token || data === null) {
+		return new TokenResult(false, 'Please pass valid token');
 	}
-	const payload = {
-		id: user.id, email: user.email, username: user.username, account_type: user.account.account_type,
-	};
-	const token = `Bearer ${generateJwtToken(payload)}`;
-	return new UserResult(true, token);
+	// data is equal to token
+	redisClient.del(key);
+	const newToken = generateToken(50);
+	if (email !== '') {
+		redisClient.set(`${email}-password-token`, newToken, redis.print);
+	}
+	if (username !== '') {
+		redisClient.set(`${username}-password-token`, newToken, redis.print);
+	}
+	return new TokenResult(true, newToken);
 };
 
-//
-// /**
-//  * @params { email, username }
-//  * @return { success, message }
-//  * Mutation to create password reset token
-//  */
-// const passwordToken = async (_, { input }, { redisClient }) => {
-// 	const email = input.email ? input.email : ''
-// 	const username = input.username ? input.username : ''
-// 	const user = await User.findOne({ $or: [{ email: email }, { username: username }]})
-// 	if(!user) {
-// 		if(email === '' && username === '') {
-// 			return generateResult(false, `Please pass email or username`)
-// 		}
-// 		if(email !== '') {
-// 			return generateResult(false, `no user exist for this ${email}`)
-// 		}
-// 		if(username !== '') {
-// 			return generateResult(false, `no user exist for this ${username}`)
-// 		}
-// 	}
-// 	const token = generateToken(50)
-// 	if(email !== '') {
-// 		redisClient.set(`${email}-password-reset`, token, redis.print)
-// 	}
-// 	if(username !== '') {
-// 		redisClient.set(`${username}-password-reset`, token, redis.print)
-// 	}
-// 	return generateResult(true, token)
-// }
-//
-//
-// /**
-//  * @params { token, username, email }
-//  * @return { success, message }
-//  * Mutation to confirm password reset token and generate token for updating password
-//  */
-// const confirmToken = async (_, { input }, { redisClient, getAsync }) => {
-// 	const token = input.token
-// 	const email = input.email ? input.email : ''
-// 	const username = input.username ? input.username : ''
-// 	let key = null
-// 	if(email !== '') {
-// 		key = `${email}-password-reset`
-// 	}
-// 	if(username !== '') {
-// 		key = `${username}-password-reset`
-// 	}
-// 	if(key !== null) {
-// 		const isKey = redisClient.get(key, redis.print)
-// 		if(!isKey) {
-// 			return generateResult(false, "no value for provider key")
-// 		}
-// 	}
-// 	const user = await User.findOne({$or: [{ email: email }, { username: username }]})
-// 	if(!user) {
-// 		if(email === '' && username === '') {
-// 			return generateResult(false, `Please pass email or username`)
-// 		}
-// 		if(email !== '') {
-// 			return generateResult(false, `no user exist for this ${email}`)
-// 		}
-// 		if(username !== '') {
-// 			return generateResult(false, `no user exist for this ${email}`)
-// 		}
-// 	}
-// 	const data = await getAsync(key)
-// 	if(data !== token || data === null) {
-// 		return generateResult(false, "Please pass valid token")
-// 	}
-// 	// data is equal to token
-// 	redisClient.del(key)
-// 	const newToken = generateToken(50)
-// 	if(email !== '') {
-// 		redisClient.set(`${email}-password-token`, newToken, redis.print)
-// 	}
-// 	if(username !== '') {
-// 		redisClient.set(`${username}-password-token`, newToken, redis.print)
-// 	}
-// 	return generateResult(true, newToken)
-// }
-//
-//
-// /**
-//  * @params { token, againPassword, password }
-//  * @return { success, message }
-//  * Mutation to confirm reset password with token
-//  */
-// const resetPassword = async (_, { input }, { redisClient, getAsync }) => {
-// 	const email = input.email ? input.email : ''
-// 	const username = input.username ? input.username : ''
-// 	const token = input.token
-// 	let key = null
-// 	if(email !== '') {
-// 		key = `${email}-password-token`
-// 	}
-// 	if(username !== '') {
-// 		key = `${username}-password-token`
-// 	}
-// 	const user = await User.findOne({$or: [{ email: email }, { username: username }]})
-// 	if(!user) {
-// 		if(email === '' && username === '') {
-// 			return generateResult(false, `Please pass email or username`)
-// 		}
-// 		if(email !== '') {
-// 			return generateResult(false, `no user exist for this ${email}`)
-// 		}
-// 		if(username !== '') {
-// 			return generateResult(false, `no user exist for this ${username}`)
-// 		}
-// 	}
-// 	const data = await getAsync(key)
-// 	if(data !== token || data === null) {
-// 		return generateResult(false, "Please pass valid token")
-// 	}
-// 	if(input.password !== input.againPassword) {
-// 		return generateResult(false, "Wrong password match.")
-// 	}
-// 	user.password = input.password
-// 	user.hashPassword()
-// 	await user.save()
-// 	redisClient.del(key)
-// 	return generateResult(true, "Successfully updated the password")
-// }
-//
-//
-// /**
-//  * @params { email, username }
-//  * @return { success, message }
-//  * Mutation to create username or email (unique across the database)
-//  */
-// const changeUsername = async (_, { input }, { redisClient, getAsync, user}) => {
-// 	// Check for authentication before proceding
-// 	if(!user.username) {
-// 		// throw auth error
-// 		throw new AuthenticationError('must authenticate')
-// 	}
-// 	const email = input.email ? input.email : ''
-// 	const username = input.username ? input.username : ''
-// 	if(email === '' && username === '') {
-// 		return generateResult(false, `Please pass email or username`)
-// 	}
-// 	const returnUser = await User.findOne({$or: [{ email: email }, { username: username }]})
-// 	if(returnUser) {
-// 		if(email !== '') {
-// 			if(user.email === returnUser.email) {
-// 				return generateResult(true, "You updated your own email")
-// 			}
-// 			return generateResult(false, `user exist for this ${email}`)
-// 		}
-// 		if(username !== '') {
-// 			if(user.username === returnUser.username) {
-// 				return generateResult(true, "You updated your own username")
-// 			}
-// 			return generateResult(false, `user exist for this ${username}`)
-// 		}
-// 	}
-// 	// user does not exist with the provided detals so let's proceed with update
-// 	if(username !== '') {
-// 		// Check weather previous user exist's or not
-// 		const sameUserReturn = await User.findOne({ email: user.email })
-// 		sameUserReturn.username = username
-// 		await sameUserReturn.save()
-// 	}
-// 	if(email !== '') {
-// 		// Check weather previous user exist's or not
-// 		const sameUserReturn = await User.findOne({ username: user.username })
-// 		sameUserReturn.email = email
-// 		await sameUserReturn.save()
-// 	}
-// 	return generateResult(true, "Successfully updated")
-// }
+
+/**
+ * @params { token, againPassword, password }
+ * @return { success, message }
+ * Mutation to confirm reset password with token
+ */
+const resetPassword = async (_, { input }, { redisClient, getAsync }) => {
+	const { token } = input;
+	/*
+	 * store the user related data
+	 */
+	const email = (input && input.email) ? input.email : '';
+	const username = (input && input.username) ? input.username : '';
+	if (email === '' && username === '') {
+		return new TokenResult(false, 'Please pass email or username');
+	}
+	/*
+	 * validate input before hitting the backend
+	 */
+	if (input && input.username) {
+		if (!validateUsername(input.username)) {
+			return new UserResult(false, 'Wrong username format');
+		}
+	}
+	if (input && input.email) {
+		if (!validateEmail(input.email)) {
+			return new UserResult(false, 'Wrong email format');
+		}
+	}
+	let key = null;
+	if (email !== '') {
+		key = `${email}-password-token`;
+	}
+	if (username !== '') {
+		key = `${username}-password-token`;
+	}
+	const user = await UserModel.findOne({ $or: [{ email }, { username }] });
+	if (!user) {
+		if (email !== '') {
+			return new UserResult(false, `no user exist for this ${email}`);
+		}
+		if (username !== '') {
+			return new UserResult(false, `no user exist for this ${username}`);
+		}
+	}
+	const data = await getAsync(key);
+	if (data !== token || data === null) {
+		return new UserResult(false, 'Please pass valid token');
+	}
+	if (input.password !== input.againPassword) {
+		return new UserResult(false, 'Wrong password match.');
+	}
+	user.password = input.password;
+	user.hashPassword();
+	await user.save();
+	redisClient.del(key);
+	return new UserResult(true, 'Successfully updated the password');
+};
+
+
+/**
+ * @params { email, username }
+ * @return { success, message }
+ * Mutation to create username or email (unique across the database)
+ */
+const changeIdentity = async (_, { input }, { user }) => {
+	if (user && !user.id) {
+		throw new AuthenticationError('must authenticate');
+	}
+	/*
+	 * store the user related data
+	 */
+	const email = (input && input.email) ? input.email : '';
+	const username = (input && input.username) ? input.username : '';
+	if (email === '' && username === '') {
+		return new UserResult(false, 'Please pass email or username');
+	}
+	if (email && username) {
+		return new UserResult(false, 'Please pass either email or username');
+	}
+	/*
+	 * validate input before hitting the backend
+	 */
+	if (input && input.username) {
+		if (!validateUsername(input.username)) {
+			return new UserResult(false, 'Wrong username format');
+		}
+	}
+	if (input && input.email) {
+		if (!validateEmail(input.email)) {
+			return new UserResult(false, 'Wrong email format');
+		}
+	}
+	const returnUser = await UserModel.findOne({ $or: [{ email }, { username }] });
+	if (returnUser) {
+		return new UserResult(false, 'Username is taken');
+	}
+	// user does not exist with the provided detals so let's proceed with update
+	const currentUser = await UserModel.findById(user.id);
+	if (email !== '') {
+		currentUser.email = email;
+		await currentUser.save();
+	}
+	if (username !== '') {
+		currentUser.username = username;
+		await currentUser.save();
+	}
+	return new UserResult(true, 'Sucessfully updated', currentUser);
+};
+
 
 const UserMutations = {
 	Mutation: {
 		signup,
 		login,
-		// passwordToken,
-		// confirmToken,
-		// resetPassword,
-		// changeUsername
+		passwordToken,
+		confirmToken,
+		resetPassword,
+		changeIdentity,
 	},
 };
-
 
 export default UserMutations;
