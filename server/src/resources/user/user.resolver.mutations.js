@@ -60,9 +60,14 @@ const signup = async (_, { input }, { user }) => {
 	/*
 	 * create new user
 	 */
+	const verifyToken = generateToken(50);
 	const newUser = new UserModel(input);
+	newUser.verifyToken = verifyToken;
 	newUser.hashPassword();
 	const savedUser = await newUser.save();
+	/*
+	 * Send the user confirmation mail
+	 */
 	return new UserResult(true, 'successfully created user', savedUser);
 };
 
@@ -162,6 +167,9 @@ const passwordToken = async (_, { input }, { redisClient }) => {
 	if (username !== '') {
 		redisClient.set(`${username}-password-reset`, token, redis.print);
 	}
+	/*
+	 * Send the password reset token
+	 */
 	return new TokenResult(true, 'Successfully created the token', token);
 };
 
@@ -289,6 +297,9 @@ const resetPassword = async (_, { input }, { redisClient, getAsync }) => {
 	user.hashPassword();
 	await user.save();
 	redisClient.del(key);
+	/*
+	 * Send the password successfully updated email
+	 */
 	return new UserResult(true, 'Successfully updated the password');
 };
 
@@ -340,8 +351,12 @@ const changeIdentity = async (_, { input }, { user }) => {
 		currentUser.username = username;
 		await currentUser.save();
 	}
+	/*
+	 * Send the username or email successfully updated email
+	 */
 	return new UserResult(true, 'Sucessfully updated', currentUser);
 };
+
 
 const updateProfile = async (_, { input }, { user }) => {
 	if (user && !user.id) {
@@ -374,6 +389,9 @@ const updateProfile = async (_, { input }, { user }) => {
 	const { id, ...update } = input;
 	await UserModel.findByIdAndUpdate(user.id, update);
 	const updatedUser = await UserModel.findById(user.id);
+	/*
+	 * Send the profile successfully updated email
+	 */
 	return new UserResult(true, 'Successfully updated', updatedUser);
 };
 

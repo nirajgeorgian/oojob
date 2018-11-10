@@ -65,6 +65,7 @@ const userModel = new Schema({
 	location: { type: String },
 	profile_picture: { type: String },
 	verified: { type: Boolean, default: false },
+	verifyToken: { type: String },
 	social_urls: {
 		facebook: { type: String, default: null },
 		google: {	type: String, default: null },
