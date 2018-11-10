@@ -343,6 +343,40 @@ const changeIdentity = async (_, { input }, { user }) => {
 	return new UserResult(true, 'Sucessfully updated', currentUser);
 };
 
+const updateProfile = async (_, { input }, { user }) => {
+	if (user && !user.id) {
+		throw new AuthenticationError('must authenticate');
+	}
+	const keys = Object.keys(input);
+	if (!keys.length) {
+		return new UserResult(false, 'Please pass updated data');
+	}
+	/*
+	 * validate input before hitting the backend
+	 */
+	if (input && input.firstname) {
+		if (!validateName(input.firstname)) {
+			return new UserResult(false, 'Wrong firstname format');
+		}
+	}
+	if (input && input.lastname) {
+		if (!validateName(input.lastname)) {
+			return new UserResult(false, 'Wrong lastname format');
+		}
+	}
+	const genders = ['male', 'female', 'other', 'not to mention'];
+	if (input && input.gender) {
+		const { gender } = input;
+		if (!genders.includes(gender)) {
+			return new UserResult(false, `gender should be any one of the following ${genders.join(', ')}`);
+		}
+	}
+	const { id, ...update } = input;
+	await UserModel.findByIdAndUpdate(user.id, update);
+	const updatedUser = await UserModel.findById(user.id);
+	return new UserResult(true, 'Successfully updated', updatedUser);
+};
+
 
 const UserMutations = {
 	Mutation: {
@@ -352,6 +386,7 @@ const UserMutations = {
 		confirmToken,
 		resetPassword,
 		changeIdentity,
+		updateProfile,
 	},
 };
 

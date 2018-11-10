@@ -14,7 +14,7 @@ enum AccountTypeEnum {
 	seeker
 }
 type ContactInfo {
-	no: Int!
+	no: String!
 	code: String!
 }
 type SocialUrls {
@@ -24,6 +24,9 @@ type SocialUrls {
 	github: String
 	instagram: String
 	personal: String
+}
+type Status {
+	status: Boolean
 }
 type Notifications {
 	job_posting: Status!
@@ -53,7 +56,6 @@ type User {
 	verified: Boolean!
 	social_urls: SocialUrls!
 	notifications: Notifications
-	notification: Notifications
 	account: Account!
 	created_at: String!
 	updated_at: String!
@@ -61,9 +63,6 @@ type User {
 type PasswordReset {
 	token: String
 	confirm: Boolean
-}
-type Status {
-	result: Boolean
 }
 type UserResult implements Result {
 	status: Boolean!
@@ -117,6 +116,39 @@ input ResetPasswordInput {
 	password: String!
 	againPassword: String!
 }
+input ContactInfoInput {
+	no: String!
+	code: String!	
+}
+input SocialUrlsInput {
+	facebook: String
+	google: String
+	twitter: String
+	github: String
+	instagram: String
+	personal: String
+}
+input StatusInput {
+	status: Boolean
+}
+input NotificationsInput {
+	job_posting: StatusInput
+	company_promotion: StatusInput
+	message: StatusInput
+	mail: StatusInput
+	comment: StatusInput
+}
+input UpdateProfileInput {
+	firstname: String
+	lastname: String
+	skills: [String!]
+	phone: ContactInfoInput
+	address: String
+	location: String
+	profile_picture: String
+	social_urls: SocialUrlsInput
+	notifications: NotificationsInput
+}
 extend type Mutation {
 	signup(input: UserSignupCredInput!): UserResult!
 	login(input: UserLoginCredInput!): UserResult!
@@ -124,4 +156,5 @@ extend type Mutation {
 	confirmToken(input: TokenInput!): TokenResult!
 	resetPassword(input: ResetPasswordInput!): UserResult!
 	changeIdentity(input: UserCheckInput!): UserResult!
+	updateProfile(input: UpdateProfileInput!): UserResult!
 }
